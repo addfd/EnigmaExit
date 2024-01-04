@@ -40,6 +40,7 @@ class Game:
         self.ground_group = pygame.sprite.Group()
         self.decorate_group = pygame.sprite.Group()
         self.coin_group = pygame.sprite.Group()
+        self.fire_group = pygame.sprite.Group()
         self.clock = pygame.time.Clock()
         self.score = 0
         pygame.time.set_timer(ANIM, 200)
@@ -57,8 +58,10 @@ class Game:
                         Tile(pos, surf, self.decorate_group)
                     elif layer.name == "coins":
                         Coin(pos, self.coin_group)
+                    elif layer.name == "fire":
+                        Tile(pos, surf, self.fire_group)
 
-        self.player = Player(144, 144, self.ground_group, self.screen)
+        self.player = Player(100, 144, self.ground_group, self.screen)
 
     def update(self):
         for event in pygame.event.get():
@@ -77,16 +80,22 @@ class Game:
         if pygame.sprite.spritecollide(self.player, self.coin_group, True):
             self.score += 1
             print(self.score)
+        if pygame.sprite.spritecollide(self.player, self.fire_group,
+                                       False) and not self.player.hit and not self.player.death:
+            self.player.hiting()
+        if self.player.restart:
+            self.main_menu()
 
         self.screen.fill('black')
         self.ground_group.draw(self.screen)
         self.decorate_group.draw(self.screen)
         self.coin_group.draw(self.screen)
+        self.fire_group.draw(self.screen)
         self.player.update()
         pygame.display.update()
 
     def play(self):
-        self.load_level("data/levels/level_0.tmx")
+        self.load_level("data/levels/level_1.tmx")
 
         while True:
             self.clock.tick(60)

@@ -1,5 +1,5 @@
 from main import Game
 
-app = Game((1080, 720))
+app = Game((1260, 720))
 
 app.main_menu()
