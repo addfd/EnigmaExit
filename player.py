@@ -9,7 +9,7 @@ def load_anim(type, count, size):
 
 
 class Player():
-    def __init__(self, x, y, world, screen):
+    def __init__(self, pos, world, screen):
         self.screen = screen
 
         self.hit_frames = load_anim("player/hit", 2, (21, 48))
@@ -24,8 +24,8 @@ class Player():
         self.world = world
 
         self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
+        self.rect.x = pos[0]
+        self.rect.y = pos[1]
         self.width = self.image.get_width()
         self.height = self.image.get_height()
         self.vel_y = 0

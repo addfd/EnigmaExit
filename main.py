@@ -38,14 +38,21 @@ class Game:
         self.height = size[1]
         self.screen = pygame.display.set_mode((size[0], size[1]))
         self.ground_group = pygame.sprite.Group()
-        self.decorate_group = pygame.sprite.Group()
         self.coin_group = pygame.sprite.Group()
         self.fire_group = pygame.sprite.Group()
+        self.key_group = pygame.sprite.Group()
+        self.all_sprite = pygame.sprite.Group()
+        self.exit = pygame.sprite.Group()
         self.clock = pygame.time.Clock()
-        self.score = 0
+        self.coin = 0
+        self.cur_level = None
+        self.spawn_pos = None
+        self.key = False
         pygame.time.set_timer(ANIM, 200)
 
     def load_level(self, name):
+        self.key = False
+        self.coin = 0
         tmx_data = load_pygame(name)
 
         for layer in tmx_data.visible_layers:
@@ -55,13 +62,19 @@ class Game:
                     if layer.name == "ground":
                         Tile(pos, surf, self.ground_group)
                     elif layer.name == "ch":
-                        Tile(pos, surf, self.decorate_group)
+                        Tile(pos, surf, self.all_sprite)
                     elif layer.name == "coins":
                         Coin(pos, self.coin_group)
                     elif layer.name == "fire":
-                        Tile(pos, surf, self.fire_group)
+                        Tile(pos, surf, self.fire_group, self.all_sprite)
+                    elif layer.name == "spawn":
+                        self.spawn_pos = pos
+                    elif layer.name == "key":
+                        Tile(pos, surf, self.key_group, self.all_sprite)
+                    elif layer.name == "exit":
+                        Tile(pos, surf, self.exit, self.all_sprite)
 
-        self.player = Player(100, 144, self.ground_group, self.screen)
+        self.player = Player(self.spawn_pos, self.ground_group, self.screen)
 
     def update(self):
         for event in pygame.event.get():
@@ -78,19 +91,22 @@ class Game:
                 self.player.anim()
 
         if pygame.sprite.spritecollide(self.player, self.coin_group, True):
-            self.score += 1
-            print(self.score)
+            self.coin += 1
+            print(self.coin)
+        if pygame.sprite.spritecollide(self.player, self.key_group, True):
+            self.key = True
+        if pygame.sprite.spritecollide(self.player, self.exit, False) and self.key:
+            self.win_screen()
         if pygame.sprite.spritecollide(self.player, self.fire_group,
                                        False) and not self.player.hit and not self.player.death:
             self.player.hiting()
         if self.player.restart:
-            self.main_menu()
+            self.restart_screen()
 
         self.screen.fill('black')
         self.ground_group.draw(self.screen)
-        self.decorate_group.draw(self.screen)
         self.coin_group.draw(self.screen)
-        self.fire_group.draw(self.screen)
+        self.all_sprite.draw(self.screen)
         self.player.update()
         pygame.display.update()
 
@@ -175,5 +191,122 @@ class Game:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.main_menu()
+
+            pygame.display.update()
+
+    def restart_screen(self):
+        while True:
+            options_mouse_pos = pygame.mouse.get_pos()
+
+            self.screen.fill("black")
+
+            options_text = get_font(45).render("GAME OVER.", True, "white")
+            options_rect = options_text.get_rect(center=(self.width // 2, self.height // 2))
+            self.screen.blit(options_text, options_rect)
+
+            restart_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (184, 56)),
+                pos=(self.width // 2, self.height // 2 + self.height * 0.2),
+                text_input="Restart", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
+
+            back_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (220, 56)),
+                pos=(self.width // 2, self.height // 2 + self.height * 0.35),
+                text_input="Main menu", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
+
+            restart_button.changeColor(options_mouse_pos)
+            restart_button.update(self.screen)
+
+            back_button.changeColor(options_mouse_pos)
+            back_button.update(self.screen)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if restart_button.checkForInput(options_mouse_pos):
+                        self.play()
+                    if back_button.checkForInput(options_mouse_pos):
+                        self.main_menu()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.main_menu()
+
+            pygame.display.update()
+
+    def win_screen(self):
+        score = 0
+        self.screen.fill("black")
+        pygame.display.update()
+
+        coin_sprite = pygame.transform.scale(pygame.image.load("data/res/coin/5.png").convert_alpha(), (64, 64))
+        for i in range(self.coin):
+            pygame.time.delay(400)
+            self.screen.blit(coin_sprite, (200 + 22 * i, self.height // 2 - 100))
+            pygame.display.update()
+
+        life_sprite_0 = pygame.transform.scale(pygame.image.load("data/gui/life/0.png").convert_alpha(), (64, 56))
+        life_sprite_1 = pygame.transform.scale(pygame.image.load("data/gui/life/1.png").convert_alpha(), (64, 56))
+        for i in range(1, 4):
+            pygame.time.delay(500)
+            if i <= self.player.life:
+                self.screen.blit(life_sprite_0, (130 + 70 * i, self.height // 2))
+            else:
+                self.screen.blit(life_sprite_1, (130 + 70 * i, self.height // 2))
+            pygame.display.update()
+
+        while True:
+            options_mouse_pos = pygame.mouse.get_pos()
+
+            self.screen.fill("black")
+
+            options_text = get_font(45).render("WIN.", True, "white")
+            options_rect = options_text.get_rect(center=(self.width // 2, self.height // 2))
+            self.screen.blit(options_text, options_rect)
+
+            coin_text = get_font(80).render(f"x{self.coin}.", True, "white")
+            coin_rect = coin_text.get_rect(topleft=(264 + 22 * self.coin, self.height // 2 - 100))
+            self.screen.blit(coin_text, coin_rect)
+
+            life_text = get_font(80).render(f"x{self.player.life}.", True, "white")
+            life_rect = life_text.get_rect(topleft=(194 + 75 * 3, self.height // 2))
+            self.screen.blit(life_text, life_rect)
+
+            score_text = get_font(80).render(f"Score: {score}.", True, "white")
+            score_rect = score_text.get_rect(center=(self.width // 2 - 100, 200))
+            self.screen.blit(score_text, score_rect)
+
+            back_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (220, 56)),
+                pos=(self.width // 2, self.height // 2 + self.height * 0.2),
+                text_input="Main menu", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
+
+            back_button.changeColor(options_mouse_pos)
+            back_button.update(self.screen)
+
+            for i in range(self.coin):
+                self.screen.blit(coin_sprite, (200 + 22 * i, self.height // 2 - 100))
+
+            for i in range(1, 4):
+                if i <= self.player.life:
+                    self.screen.blit(life_sprite_0, (130 + 70 * i, self.height // 2))
+                else:
+                    self.screen.blit(life_sprite_1, (130 + 70 * i, self.height // 2))
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if back_button.checkForInput(options_mouse_pos):
+                        self.main_menu()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.main_menu()
+
+            if score < (100 * self.coin) * self.player.life:
+                pygame.time.delay(50)
+                score += 100
 
             pygame.display.update()
