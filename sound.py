@@ -8,12 +8,14 @@ class SoundModule:
                            "data/music/UnderwaterLevel.mp3"]
         self.cur_track = randint(0, len(self.list_music) - 1)
 
-        self.path_to_settings = "data/settings.txt"
+        self.path_to_settings = "data/save/settings.txt"
 
         self.volume_ui, self.volume_music = self.read_settings()
         self.read_settings()
 
-        self.ui_click = mixer.Sound("data/gui/CursorSound1.wav")
+        self.coin = mixer.Sound("data/sounds/coin.wav")
+
+        self.ui_click = mixer.Sound("data/sounds/cursor_sound.wav")
         self.set_volume_ui(self.volume_ui)
         mixer.music.set_endevent(event_song_end)
         self.set_volume_music(self.volume_music)
@@ -33,9 +35,6 @@ class SoundModule:
     def write_settings(self, new_settings):
         with open(self.path_to_settings, "w") as save:
             save.write("\n".join([str(i) for i in new_settings]))
-
-    def play_ui_click(self):
-        self.ui_click.play()
 
     def set_volume_ui(self, volume):
         self.ui_click.set_volume(volume)

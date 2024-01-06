@@ -4,7 +4,7 @@ import pygame
 def load_anim(type, count, size):
     anim = []
     for name in range(count):
-        anim.append(pygame.transform.scale(pygame.image.load(f'data/res/{type}/{name}.png').convert_alpha(), size))
+        anim.append(pygame.transform.scale(pygame.image.load(f'data/sprites/{type}/{name}.png').convert_alpha(), size))
     return anim
 
 
@@ -36,8 +36,8 @@ class Player():
         self.timehit = 0
 
         self.life = 3
-        self.life_sprite = [pygame.transform.scale(pygame.image.load('data/gui/life/0.png').convert_alpha(), (10, 9)),
-                            pygame.transform.scale(pygame.image.load('data/gui/life/1.png').convert_alpha(), (10, 9))]
+        self.life_sprite = [pygame.transform.scale(pygame.image.load('data/sprites/ui/0.png').convert_alpha(), (10, 9)),
+                            pygame.transform.scale(pygame.image.load('data/sprites/ui/1.png').convert_alpha(), (10, 9))]
 
         self.in_air = False
         self.move = False

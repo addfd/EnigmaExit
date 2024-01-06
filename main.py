@@ -4,6 +4,7 @@ from sound import SoundModule
 from player import Player, load_anim
 from pytmx.util_pygame import load_pygame
 from button import Button
+from random import randint
 
 ANIM = pygame.USEREVENT + 1
 SONG_ENDED = pygame.USEREVENT + 2
@@ -24,6 +25,7 @@ class Coin(pygame.sprite.Sprite):
     def __init__(self, pos, *groups):
         super().__init__(*groups)
         self.frames = load_anim("coin", 6, (32, 32))
+        self.group = groups
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
         self.rect = self.image.get_rect(topleft=pos)
@@ -31,6 +33,12 @@ class Coin(pygame.sprite.Sprite):
     def update(self):
         self.cur_frame = (self.cur_frame + 1) % len(self.frames)
         self.image = self.frames[self.cur_frame]
+
+    def update_collide(self, pl):
+        if pygame.sprite.collide_rect(self, pl):
+            self.kill()
+            return True
+        return False
 
 
 class Game:
@@ -50,7 +58,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.coin = 0
         self.levels = {"level_0": "data/levels/level_0.tmx", "level_1": "data/levels/level_1.tmx"}
-        self.path_to_save = "data/levels/save.txt"
+        self.path_to_save = "data/save/save.txt"
         self.cur_level = None
         self.spawn_pos = None
         self.player = None
@@ -102,8 +110,11 @@ class Game:
             if event.type == SONG_ENDED:
                 self.sound.play_next_track()
 
-        if pygame.sprite.spritecollide(self.player, self.coin_group, True):
-            self.coin += 1
+        for coin in self.coin_group:
+            if coin.update_collide(self.player):
+                self.coin += 1
+                self.sound.coin.play()
+
         if pygame.sprite.spritecollide(self.player, self.key_group, True):
             self.key = True
         if pygame.sprite.spritecollide(self.player, self.exit, False) and self.key:
@@ -144,16 +155,19 @@ class Game:
             menu_rect = menu_text.get_rect(center=(self.width // 2, 100))
 
             play_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), size_buttons),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             size_buttons),
                 pos=(self.width // 2, self.height // 2 - self.height * 0.1),
                 text_input="Play", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
             options_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), size_buttons),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             size_buttons),
                 pos=(self.width // 2, self.height // 2),
                 text_input="Options", font=get_font(75), base_color="#d7fcd4",
                 hovering_color="White")
             quit_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), size_buttons),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             size_buttons),
                 pos=(self.width // 2, self.height // 2 + self.height * 0.1),
                 text_input="Quit", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
@@ -169,13 +183,13 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if play_button.checkForInput(menu_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.levels_screen()
                     if options_button.checkForInput(menu_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.options()
                     if quit_button.checkForInput(menu_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         pygame.quit()
                         sys.exit()
                 if event.type == SONG_ENDED:
@@ -205,11 +219,13 @@ class Game:
             self.screen.blit(ui_volume_text, ui_volume_rect)
 
             plus_music_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/gui_small.png").convert_alpha(), (56, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button_small.png").convert_alpha(),
+                                             (56, 56)),
                 pos=(self.width // 2 + 56, self.height // 2 - 95),
                 text_input="+", font=get_font(75), base_color="#d7fcd4", hovering_color="White", shiftx=2, shifty=-8)
             minus_music_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/gui_small.png").convert_alpha(), (56, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button_small.png").convert_alpha(),
+                                             (56, 56)),
                 pos=(self.width // 2 - 56, self.height // 2 - 95),
                 text_input="-", font=get_font(75), base_color="#d7fcd4", hovering_color="White", shiftx=2, shifty=-8)
             plus_music_button.changeColor(options_mouse_pos)
@@ -218,11 +234,13 @@ class Game:
             minus_music_button.update(self.screen)
 
             plus_ui_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/gui_small.png").convert_alpha(), (56, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button_small.png").convert_alpha(),
+                                             (56, 56)),
                 pos=(self.width // 2 + 56, self.height // 2 + 5),
                 text_input="+", font=get_font(75), base_color="#d7fcd4", hovering_color="White", shiftx=2, shifty=-8)
             minus_ui_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/gui_small.png").convert_alpha(), (56, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button_small.png").convert_alpha(),
+                                             (56, 56)),
                 pos=(self.width // 2 - 56, self.height // 2 + 5),
                 text_input="-", font=get_font(75), base_color="#d7fcd4", hovering_color="White", shiftx=2, shifty=-8)
             plus_ui_button.changeColor(options_mouse_pos)
@@ -231,7 +249,8 @@ class Game:
             minus_ui_button.update(self.screen)
 
             options_back = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (184, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (184, 56)),
                 pos=(self.width // 2, self.height // 2 + self.height * 0.2),
                 text_input="Back", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
@@ -244,29 +263,29 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if plus_music_button.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         if music_volume < 1.0:
                             music_volume = float('{:.1f}'.format(music_volume + 0.1))
                             self.sound.set_volume_music(music_volume)
                     if minus_music_button.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         if music_volume > 0.0:
                             music_volume = float('{:.1f}'.format(music_volume - 0.1))
                             self.sound.set_volume_music(music_volume)
 
                     if plus_ui_button.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         if ui_volume < 1.0:
                             ui_volume = float('{:.1f}'.format(ui_volume + 0.1))
                             self.sound.set_volume_ui(ui_volume)
                     if minus_ui_button.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         if ui_volume > 0.0:
                             ui_volume = float('{:.1f}'.format(ui_volume - 0.1))
                             self.sound.set_volume_ui(ui_volume)
 
                     if options_back.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.sound.write_settings([ui_volume, music_volume])
                         self.main_menu()
                 if event.type == pygame.KEYDOWN:
@@ -289,12 +308,14 @@ class Game:
             self.screen.blit(options_text, options_rect)
 
             restart_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (184, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (184, 56)),
                 pos=(self.width // 2, self.height // 2 + self.height * 0.2),
                 text_input="Restart", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
             back_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (220, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (220, 56)),
                 pos=(self.width // 2, self.height // 2 + self.height * 0.35),
                 text_input="Main menu", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
@@ -310,10 +331,10 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if restart_button.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.play(self.cur_level)
                     if back_button.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.main_menu()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
@@ -328,14 +349,21 @@ class Game:
         self.screen.fill("black")
         pygame.display.update()
 
-        coin_sprite = pygame.transform.scale(pygame.image.load("data/res/coin/5.png").convert_alpha(), (64, 64))
-        for i in range(self.coin):
-            pygame.time.delay(350)
-            self.screen.blit(coin_sprite, (200 + 22 * i, self.height // 2 - 100))
-            pygame.display.update()
+        print(self.coin)
 
-        life_sprite_0 = pygame.transform.scale(pygame.image.load("data/gui/life/0.png").convert_alpha(), (64, 56))
-        life_sprite_1 = pygame.transform.scale(pygame.image.load("data/gui/life/1.png").convert_alpha(), (64, 56))
+        coin_sprite = pygame.transform.scale(pygame.image.load("data/sprites/coin/5.png").convert_alpha(), (64, 64))
+        pos_rot_coins = []
+        for i in range(self.coin):
+            pygame.time.delay(250)
+            pos_rot_coins.append(
+                (200 + 22 * i + randint(-10, 10), self.height // 2 - 100 + randint(-5, 5), randint(-90, 90)))
+            self.screen.blit(pygame.transform.rotate(coin_sprite, pos_rot_coins[-1][2]),
+                             (pos_rot_coins[-1][0], pos_rot_coins[-1][1]))
+            pygame.display.update()
+            self.sound.coin.play()
+
+        life_sprite_0 = pygame.transform.scale(pygame.image.load("data/sprites/ui/0.png").convert_alpha(), (64, 56))
+        life_sprite_1 = pygame.transform.scale(pygame.image.load("data/sprites/ui/1.png").convert_alpha(), (64, 56))
         for i in range(1, 4):
             pygame.time.delay(400)
             if i <= self.player.life:
@@ -359,7 +387,7 @@ class Game:
             self.screen.blit(options_text, options_rect)
 
             coin_text = get_font(80).render(f"x{self.coin}.", True, "white")
-            coin_rect = coin_text.get_rect(topleft=(264 + 22 * self.coin, self.height // 2 - 100))
+            coin_rect = coin_text.get_rect(topleft=(pos_rot_coins[-1][0] + 100, self.height // 2 - 100))
             self.screen.blit(coin_text, coin_rect)
 
             life_text = get_font(80).render(f"x{self.player.life}.", True, "white")
@@ -371,15 +399,16 @@ class Game:
             self.screen.blit(score_text, score_rect)
 
             back_button = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (220, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (220, 56)),
                 pos=(self.width // 2, self.height // 2 + self.height * 0.2),
                 text_input="Main menu", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
             back_button.changeColor(options_mouse_pos)
             back_button.update(self.screen)
 
-            for i in range(self.coin):
-                self.screen.blit(coin_sprite, (200 + 22 * i, self.height // 2 - 100))
+            for x, y, r in pos_rot_coins:
+                self.screen.blit(pygame.transform.rotate(coin_sprite, r), (x, y))
 
             for i in range(1, 4):
                 if i <= self.player.life:
@@ -393,7 +422,7 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if back_button.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.main_menu()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
@@ -402,7 +431,7 @@ class Game:
                     self.sound.play_next_track()
 
             if score < (100 * self.coin) * self.player.life:
-                pygame.time.delay(100)
+                pygame.time.delay(80)
                 score += 100
 
             pygame.display.update()
@@ -419,7 +448,8 @@ class Game:
             self.screen.blit(options_text, options_rect)
 
             options_back = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (184, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (184, 56)),
                 pos=(self.width // 2, self.height // 2 + self.height * 0.2),
                 text_input="Back", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
@@ -427,7 +457,8 @@ class Game:
             options_back.update(self.screen)
 
             reset_result = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (200, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (200, 56)),
                 pos=(self.width - 100, 28),
                 text_input="Reset result", font=get_font(60), base_color="#d7fcd4", hovering_color="Red")
 
@@ -435,11 +466,13 @@ class Game:
             reset_result.update(self.screen)
 
             level_0 = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (184, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (184, 56)),
                 pos=(self.width // 2 - 200, self.height // 2 - self.height * 0.1),
                 text_input="level 1", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
             level_1 = Button(
-                image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (184, 56)),
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (184, 56)),
                 pos=(self.width // 2 - 200, self.height // 2),
                 text_input="level 2", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
@@ -464,18 +497,18 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if level_0.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.cur_level = "level_0"
                         self.play(self.cur_level)
                     if level_1.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.cur_level = "level_1"
                         self.play(self.cur_level)
                     if options_back.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.main_menu()
                     if reset_result.checkForInput(options_mouse_pos):
-                        self.sound.play_ui_click()
+                        self.sound.ui_click.play()
                         self.reset_save()
                         result = self.read_result()
                 if event.type == pygame.KEYDOWN:
