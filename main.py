@@ -1,10 +1,12 @@
 import pygame
 import sys
+from sound import SoundModule
 from player import Player, load_anim
 from pytmx.util_pygame import load_pygame
 from button import Button
 
 ANIM = pygame.USEREVENT + 1
+SONG_ENDED = pygame.USEREVENT + 2
 
 
 def get_font(size):
@@ -37,12 +39,14 @@ class Game:
         self.width = size[0]
         self.height = size[1]
         self.screen = pygame.display.set_mode((size[0], size[1]))
+
         self.ground_group = pygame.sprite.Group()
         self.coin_group = pygame.sprite.Group()
         self.fire_group = pygame.sprite.Group()
         self.key_group = pygame.sprite.Group()
         self.all_sprite = pygame.sprite.Group()
         self.exit = pygame.sprite.Group()
+
         self.clock = pygame.time.Clock()
         self.coin = 0
         self.levels = {"level_0": "data/levels/level_0.tmx", "level_1": "data/levels/level_1.tmx"}
@@ -52,6 +56,8 @@ class Game:
         self.player = None
         self.key = False
         pygame.time.set_timer(ANIM, 200)
+
+        self.sound = SoundModule(SONG_ENDED)
 
     def load_level(self, name):
         self.key = False
@@ -93,6 +99,8 @@ class Game:
                 for coin in self.coin_group:
                     coin.update()
                 self.player.anim()
+            if event.type == SONG_ENDED:
+                self.sound.play_next_track()
 
         if pygame.sprite.spritecollide(self.player, self.coin_group, True):
             self.coin += 1
@@ -132,7 +140,7 @@ class Game:
 
             menu_mouse_pos = pygame.mouse.get_pos()
 
-            menu_text = get_font(100).render("MAIN MENU", True, "#b68f40")
+            menu_text = get_font(100).render("ENIGMA EXIT", True, "#b68f40")
             menu_rect = menu_text.get_rect(center=(self.width // 2, 100))
 
             play_button = Button(
@@ -161,24 +169,66 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if play_button.checkForInput(menu_mouse_pos):
+                        self.sound.play_ui_click()
                         self.levels_screen()
                     if options_button.checkForInput(menu_mouse_pos):
+                        self.sound.play_ui_click()
                         self.options()
                     if quit_button.checkForInput(menu_mouse_pos):
+                        self.sound.play_ui_click()
                         pygame.quit()
                         sys.exit()
+                if event.type == SONG_ENDED:
+                    self.sound.play_next_track()
 
             pygame.display.update()
 
     def options(self):
+        ui_volume, music_volume = self.sound.read_settings()
         while True:
             options_mouse_pos = pygame.mouse.get_pos()
 
             self.screen.fill("black")
 
-            options_text = get_font(45).render("This is the OPTIONS screen.", True, "white")
-            options_rect = options_text.get_rect(center=(self.width // 2, self.height // 2))
-            self.screen.blit(options_text, options_rect)
+            music_volume_text = get_font(60).render("Music volume", True, "white")
+            music_volume_rect = music_volume_text.get_rect(center=(self.width // 2 - 200, self.height // 2 - 100))
+            self.screen.blit(music_volume_text, music_volume_rect)
+            ui_volume_text = get_font(60).render("UI volume", True, "white")
+            ui_volume_rect = ui_volume_text.get_rect(center=(self.width // 2 - 220, self.height // 2))
+            self.screen.blit(ui_volume_text, ui_volume_rect)
+
+            music_volume_text = get_font(45).render(str(music_volume), True, "white")
+            music_volume_rect = music_volume_text.get_rect(center=(self.width // 2, self.height // 2 - 100))
+            self.screen.blit(music_volume_text, music_volume_rect)
+            ui_volume_text = get_font(45).render(str(ui_volume), True, "white")
+            ui_volume_rect = ui_volume_text.get_rect(center=(self.width // 2, self.height // 2))
+            self.screen.blit(ui_volume_text, ui_volume_rect)
+
+            plus_music_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/gui/gui_small.png").convert_alpha(), (56, 56)),
+                pos=(self.width // 2 + 56, self.height // 2 - 95),
+                text_input="+", font=get_font(75), base_color="#d7fcd4", hovering_color="White", shiftx=2, shifty=-8)
+            minus_music_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/gui/gui_small.png").convert_alpha(), (56, 56)),
+                pos=(self.width // 2 - 56, self.height // 2 - 95),
+                text_input="-", font=get_font(75), base_color="#d7fcd4", hovering_color="White", shiftx=2, shifty=-8)
+            plus_music_button.changeColor(options_mouse_pos)
+            minus_music_button.changeColor(options_mouse_pos)
+            plus_music_button.update(self.screen)
+            minus_music_button.update(self.screen)
+
+            plus_ui_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/gui/gui_small.png").convert_alpha(), (56, 56)),
+                pos=(self.width // 2 + 56, self.height // 2 + 5),
+                text_input="+", font=get_font(75), base_color="#d7fcd4", hovering_color="White", shiftx=2, shifty=-8)
+            minus_ui_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/gui/gui_small.png").convert_alpha(), (56, 56)),
+                pos=(self.width // 2 - 56, self.height // 2 + 5),
+                text_input="-", font=get_font(75), base_color="#d7fcd4", hovering_color="White", shiftx=2, shifty=-8)
+            plus_ui_button.changeColor(options_mouse_pos)
+            minus_ui_button.changeColor(options_mouse_pos)
+            plus_ui_button.update(self.screen)
+            minus_ui_button.update(self.screen)
 
             options_back = Button(
                 image=pygame.transform.scale(pygame.image.load("data/gui/GUI.png").convert_alpha(), (184, 56)),
@@ -193,11 +243,38 @@ class Game:
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
+                    if plus_music_button.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
+                        if music_volume < 1.0:
+                            music_volume = float('{:.1f}'.format(music_volume + 0.1))
+                            self.sound.set_volume_music(music_volume)
+                    if minus_music_button.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
+                        if music_volume > 0.0:
+                            music_volume = float('{:.1f}'.format(music_volume - 0.1))
+                            self.sound.set_volume_music(music_volume)
+
+                    if plus_ui_button.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
+                        if ui_volume < 1.0:
+                            ui_volume = float('{:.1f}'.format(ui_volume + 0.1))
+                            self.sound.set_volume_ui(ui_volume)
+                    if minus_ui_button.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
+                        if ui_volume > 0.0:
+                            ui_volume = float('{:.1f}'.format(ui_volume - 0.1))
+                            self.sound.set_volume_ui(ui_volume)
+
                     if options_back.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
+                        self.sound.write_settings([ui_volume, music_volume])
                         self.main_menu()
-                elif event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
+                        self.sound.write_settings([ui_volume, music_volume])
                         self.main_menu()
+                if event.type == SONG_ENDED:
+                    self.sound.play_next_track()
 
             pygame.display.update()
 
@@ -233,12 +310,16 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if restart_button.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
                         self.play(self.cur_level)
                     if back_button.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
                         self.main_menu()
-                elif event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.main_menu()
+                if event.type == SONG_ENDED:
+                    self.sound.play_next_track()
 
             pygame.display.update()
 
@@ -312,10 +393,13 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if back_button.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
                         self.main_menu()
-                elif event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.main_menu()
+                if event.type == SONG_ENDED:
+                    self.sound.play_next_track()
 
             if score < (100 * self.coin) * self.player.life:
                 pygame.time.delay(100)
@@ -360,7 +444,8 @@ class Game:
                 text_input="level 2", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
             score_text_0 = get_font(80).render(f"{result['level_0'][0]}/{result['level_0'][1]}", True, "white")
-            score_rect_0 = options_text.get_rect(center=(self.width // 2 + 50, self.height // 2 - self.height * 0.1 - 10))
+            score_rect_0 = options_text.get_rect(
+                center=(self.width // 2 + 50, self.height // 2 - self.height * 0.1 - 10))
             self.screen.blit(score_text_0, score_rect_0)
 
             score_text_1 = get_font(80).render(f"{result['level_1'][0]}/{result['level_1'][1]}", True, "white")
@@ -379,19 +464,25 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if level_0.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
                         self.cur_level = "level_0"
                         self.play(self.cur_level)
                     if level_1.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
                         self.cur_level = "level_1"
                         self.play(self.cur_level)
                     if options_back.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
                         self.main_menu()
                     if reset_result.checkForInput(options_mouse_pos):
+                        self.sound.play_ui_click()
                         self.reset_save()
                         result = self.read_result()
-                elif event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.main_menu()
+                if event.type == SONG_ENDED:
+                    self.sound.play_next_track()
 
             pygame.display.update()
 
