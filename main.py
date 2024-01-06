@@ -5,6 +5,7 @@ from player import Player, load_anim
 from pytmx.util_pygame import load_pygame
 from button import Button
 from random import randint
+from weather import Weather
 
 ANIM = pygame.USEREVENT + 1
 SONG_ENDED = pygame.USEREVENT + 2
@@ -54,10 +55,13 @@ class Game:
         self.key_group = pygame.sprite.Group()
         self.all_sprite = pygame.sprite.Group()
         self.exit = pygame.sprite.Group()
+        self.rain_group = pygame.sprite.Group()
+        self.weather = Weather(self.rain_group, self.screen, self.width, self.height)
 
         self.clock = pygame.time.Clock()
         self.coin = 0
-        self.levels = {"level_0": "data/levels/level_0.tmx", "level_1": "data/levels/level_1.tmx"}
+        self.levels = {"level_0": "data/levels/level_0.tmx", "level_1": "data/levels/level_1.tmx",
+                       "rain": "data/levels/rain.tmx"}
         self.path_to_save = "data/save/save.txt"
         self.cur_level = None
         self.spawn_pos = None
@@ -93,7 +97,7 @@ class Game:
 
         self.player = Player(self.spawn_pos, self.ground_group, self.screen)
 
-    def update(self):
+    def update(self, weather_on):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -109,6 +113,13 @@ class Game:
                 self.player.anim()
             if event.type == SONG_ENDED:
                 self.sound.play_next_track()
+
+        if self.player.rect.y - 100 > self.height:
+            if self.player.life == 1:
+                self.player.restart = True
+            else:
+                self.player.rect.x, self.player.rect.y = self.spawn_pos
+                self.player.hiting()
 
         for coin in self.coin_group:
             if coin.update_collide(self.player):
@@ -128,16 +139,23 @@ class Game:
             self.restart_screen()
 
         self.screen.fill('black')
+        if weather_on:
+            self.weather.update()
+            for i in self.rain_group:
+                i.update()
         self.all_sprite.draw(self.screen)
         self.player.update()
         pygame.display.update()
 
     def play(self, level):
         self.load_level(self.levels[level])
+        weather_on = False
+        if level == "rain":
+            weather_on = True
 
         while True:
             self.clock.tick(60)
-            self.update()
+            self.update(weather_on=weather_on)
 
     def del_level(self):
         for sprite in self.all_sprite:
@@ -349,14 +367,12 @@ class Game:
         self.screen.fill("black")
         pygame.display.update()
 
-        print(self.coin)
-
         coin_sprite = pygame.transform.scale(pygame.image.load("data/sprites/coin/5.png").convert_alpha(), (64, 64))
         pos_rot_coins = []
         for i in range(self.coin):
             pygame.time.delay(250)
             pos_rot_coins.append(
-                (200 + 22 * i + randint(-10, 10), self.height // 2 - 100 + randint(-5, 5), randint(-90, 90)))
+                (200 + 22 * i + randint(-7, 7), self.height // 2 - 100 + randint(-4, 4), randint(-75, 75)))
             self.screen.blit(pygame.transform.rotate(coin_sprite, pos_rot_coins[-1][2]),
                              (pos_rot_coins[-1][0], pos_rot_coins[-1][1]))
             pygame.display.update()
@@ -476,20 +492,34 @@ class Game:
                 pos=(self.width // 2 - 200, self.height // 2),
                 text_input="level 2", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
-            score_text_0 = get_font(80).render(f"{result['level_0'][0]}/{result['level_0'][1]}", True, "white")
-            score_rect_0 = options_text.get_rect(
-                center=(self.width // 2 + 50, self.height // 2 - self.height * 0.1 - 10))
-            self.screen.blit(score_text_0, score_rect_0)
-
-            score_text_1 = get_font(80).render(f"{result['level_1'][0]}/{result['level_1'][1]}", True, "white")
-            score_rect_1 = options_text.get_rect(center=(self.width // 2 + 50, self.height // 2 - 10))
-            self.screen.blit(score_text_1, score_rect_1)
+            level_rain = Button(
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (184, 56)),
+                pos=(self.width // 2 - 200, self.height // 2 + self.height * 0.1),
+                text_input="rain", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
             level_0.changeColor(options_mouse_pos)
             level_0.update(self.screen)
 
             level_1.changeColor(options_mouse_pos)
             level_1.update(self.screen)
+
+            level_rain.changeColor(options_mouse_pos)
+            level_rain.update(self.screen)
+
+            score_text_0 = get_font(80).render(f"{result['level_0'][0]}/{result['level_0'][1]}", True, "white")
+            score_rect_0 = score_text_0.get_rect(
+                center=(self.width // 2 - 10, self.height // 2 - self.height * 0.1 - 10))
+            self.screen.blit(score_text_0, score_rect_0)
+
+            score_text_1 = get_font(80).render(f"{result['level_1'][0]}/{result['level_1'][1]}", True, "white")
+            score_rect_1 = score_text_1.get_rect(center=(self.width // 2 - 10, self.height // 2 - 10))
+            self.screen.blit(score_text_1, score_rect_1)
+
+            score_text_rain = get_font(80).render(f"{result['rain'][0]}/{result['rain'][1]}", True, "white")
+            score_rect_rain = score_text_rain.get_rect(
+                center=(self.width // 2 - 10, self.height // 2 + self.height * 0.1 - 10))
+            self.screen.blit(score_text_rain, score_rect_rain)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -503,6 +533,10 @@ class Game:
                     if level_1.checkForInput(options_mouse_pos):
                         self.sound.ui_click.play()
                         self.cur_level = "level_1"
+                        self.play(self.cur_level)
+                    if level_rain.checkForInput(options_mouse_pos):
+                        self.sound.ui_click.play()
+                        self.cur_level = "rain"
                         self.play(self.cur_level)
                     if options_back.checkForInput(options_mouse_pos):
                         self.sound.ui_click.play()

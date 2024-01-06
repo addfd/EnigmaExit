@@ -94,7 +94,6 @@ class Player():
             self.rect.y += dy
 
         self.screen.blit(self.image, self.rect)
-
         # pygame.draw.rect(self.screen, (255, 255, 255), self.rect, 2)
 
         if self.hit:

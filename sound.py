@@ -24,8 +24,8 @@ class SoundModule:
     def play_next_track(self):
         mixer.music.load(self.list_music[self.cur_track])
         mixer.music.play()
-        mixer.music.get_pos()
         self.cur_track = (self.cur_track + 1) % len(self.list_music)
+
 
     def read_settings(self):
         with open(self.path_to_settings) as save:
