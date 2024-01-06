@@ -6,6 +6,7 @@ from button import Button
 
 ANIM = pygame.USEREVENT + 1
 
+
 def get_font(size):
     return pygame.font.Font("data/font.ttf", size)
 
