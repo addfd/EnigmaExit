@@ -49,6 +49,10 @@ class Game:
         self.height = size[1]
         self.screen = pygame.display.set_mode((size[0], size[1]))
 
+        pygame_icon = pygame.image.load("data/icon.png").convert_alpha()
+        pygame.display.set_icon(pygame_icon)
+        pygame.display.set_caption("Enigma Exit")
+
         self.ground_group = pygame.sprite.Group()
         self.coin_group = pygame.sprite.Group()
         self.fire_group = pygame.sprite.Group()
