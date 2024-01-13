@@ -65,15 +65,18 @@ class Game:
         self.clock = pygame.time.Clock()
         self.coin = 0
         self.levels = {"level_0": "data/levels/level_0.tmx", "level_1": "data/levels/level_1.tmx",
-                       "rain": "data/levels/rain.tmx"}
+                       "rain": "data/levels/rain.tmx", "sky": "data/levels/sky.tmx"}
         self.path_to_save = "data/save/save.txt"
+        self.path_to_settings = "data/save/settings.txt"
+
         self.cur_level = None
         self.spawn_pos = None
         self.player = None
         self.key = False
         pygame.time.set_timer(ANIM, 200)
 
-        self.sound = SoundModule(SONG_ENDED)
+        self.sound = SoundModule(SONG_ENDED, (
+        float(self.read_settings()["ui_volume"]), float(self.read_settings()["music_volume"])))
 
     def load_level(self, name):
         self.key = False
@@ -220,7 +223,7 @@ class Game:
             pygame.display.update()
 
     def options(self):
-        ui_volume, music_volume = self.sound.read_settings()
+        ui_volume, music_volume = float(self.read_settings()["ui_volume"]), float(self.read_settings()["music_volume"])
         while True:
             options_mouse_pos = pygame.mouse.get_pos()
 
@@ -308,11 +311,11 @@ class Game:
 
                     if options_back.checkForInput(options_mouse_pos):
                         self.sound.ui_click.play()
-                        self.sound.write_settings([ui_volume, music_volume])
+                        self.write_settings({"ui_volume": ui_volume, "music_volume": music_volume})
                         self.main_menu()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        self.sound.write_settings([ui_volume, music_volume])
+                        self.write_settings({"ui_volume": ui_volume, "music_volume": music_volume})
                         self.main_menu()
                 if event.type == SONG_ENDED:
                     self.sound.play_next_track()
@@ -470,7 +473,7 @@ class Game:
             options_back = Button(
                 image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
                                              (184, 56)),
-                pos=(self.width // 2, self.height // 2 + self.height * 0.2),
+                pos=(self.width // 2, self.height // 2 + self.height * 0.3),
                 text_input="Back", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
             options_back.changeColor(options_mouse_pos)
@@ -502,6 +505,12 @@ class Game:
                 pos=(self.width // 2 - 200, self.height // 2 + self.height * 0.1),
                 text_input="rain", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
+            level_sky = Button(
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (184, 56)),
+                pos=(self.width // 2 - 200, self.height // 2 + self.height * 0.2),
+                text_input="sky", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
+
             level_0.changeColor(options_mouse_pos)
             level_0.update(self.screen)
 
@@ -510,6 +519,9 @@ class Game:
 
             level_rain.changeColor(options_mouse_pos)
             level_rain.update(self.screen)
+
+            level_sky.changeColor(options_mouse_pos)
+            level_sky.update(self.screen)
 
             score_text_0 = get_font(80).render(f"{result['level_0'][0]}/{result['level_0'][1]}", True, "white")
             score_rect_0 = score_text_0.get_rect(
@@ -524,6 +536,11 @@ class Game:
             score_rect_rain = score_text_rain.get_rect(
                 center=(self.width // 2 - 10, self.height // 2 + self.height * 0.1 - 10))
             self.screen.blit(score_text_rain, score_rect_rain)
+
+            score_text_sky = get_font(80).render(f"{result['sky'][0]}/{result['sky'][1]}", True, "white")
+            score_rect_sky = score_text_sky.get_rect(
+                center=(self.width // 2 - 10, self.height // 2 + self.height * 0.2 - 10))
+            self.screen.blit(score_text_sky, score_rect_sky)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -541,6 +558,10 @@ class Game:
                     if level_rain.checkForInput(options_mouse_pos):
                         self.sound.ui_click.play()
                         self.cur_level = "rain"
+                        self.play(self.cur_level)
+                    if level_sky.checkForInput(options_mouse_pos):
+                        self.sound.ui_click.play()
+                        self.cur_level = "sky"
                         self.play(self.cur_level)
                     if options_back.checkForInput(options_mouse_pos):
                         self.sound.ui_click.play()
@@ -570,3 +591,17 @@ class Game:
 
     def reset_save(self):
         self.write_result({level: [0, value[1]] for level, value in self.read_result().items()})
+
+    def read_settings(self):
+        with open(self.path_to_settings) as settings:
+            result = settings.read().splitlines()
+            re = {line.split("=")[0]: line.split("=")[1] for line in result}
+        return re
+
+    def write_settings(self, new_settings):
+        cur_settings = self.read_settings()
+        for name, sett in new_settings.items():
+            cur_settings[name] = sett
+        with open(self.path_to_settings, "w") as settings:
+            for name, sett in cur_settings.items():
+                settings.write(f"{name}={sett}\n")

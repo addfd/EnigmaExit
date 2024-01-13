@@ -1,3 +1,4 @@
 level_0 0 7200
 level_1 0 5100
 rain 0 6600
+sky 0 5700
