@@ -1,11 +1,12 @@
-import pygame
 import sys
 from sound import SoundModule
-from player import Player, load_anim
+from player import Player
 from pytmx.util_pygame import load_pygame
 from button import Button
 from random import randint
 from weather import Weather
+from tiles import *
+import webbrowser
 
 ANIM = pygame.USEREVENT + 1
 SONG_ENDED = pygame.USEREVENT + 2
@@ -15,39 +16,16 @@ def get_font(size):
     return pygame.font.Font("data/font.ttf", size)
 
 
-class Tile(pygame.sprite.Sprite):
-    def __init__(self, pos, surf, *groups):
-        super().__init__(*groups)
-        self.image = pygame.transform.scale(surf, (36, 36))
-        self.rect = self.image.get_rect(topleft=pos)
-
-
-class Coin(pygame.sprite.Sprite):
-    def __init__(self, pos, *groups):
-        super().__init__(*groups)
-        self.frames = load_anim("coin", 6, (32, 32))
-        self.group = groups
-        self.cur_frame = 0
-        self.image = self.frames[self.cur_frame]
-        self.rect = self.image.get_rect(topleft=pos)
-
-    def update(self):
-        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
-        self.image = self.frames[self.cur_frame]
-
-    def update_collide(self, pl):
-        if pygame.sprite.collide_rect(self, pl):
-            self.kill()
-            return True
-        return False
-
-
 class Game:
     def __init__(self, size):
         pygame.init()
         self.width = size[0]
         self.height = size[1]
         self.screen = pygame.display.set_mode((size[0], size[1]))
+
+        pygame_icon = pygame.image.load("data/icon.png").convert_alpha()
+        pygame.display.set_icon(pygame_icon)
+        pygame.display.set_caption("Enigma Exit")
 
         self.ground_group = pygame.sprite.Group()
         self.coin_group = pygame.sprite.Group()
@@ -61,15 +39,18 @@ class Game:
         self.clock = pygame.time.Clock()
         self.coin = 0
         self.levels = {"level_0": "data/levels/level_0.tmx", "level_1": "data/levels/level_1.tmx",
-                       "rain": "data/levels/rain.tmx"}
+                       "rain": "data/levels/rain.tmx", "sky": "data/levels/sky.tmx"}
         self.path_to_save = "data/save/save.txt"
+        self.path_to_settings = "data/save/settings.txt"
+
         self.cur_level = None
         self.spawn_pos = None
         self.player = None
         self.key = False
         pygame.time.set_timer(ANIM, 200)
 
-        self.sound = SoundModule(SONG_ENDED)
+        self.sound = SoundModule(SONG_ENDED, (
+            float(self.read_settings()["ui_volume"]), float(self.read_settings()["music_volume"])))
 
     def load_level(self, name):
         self.key = False
@@ -163,7 +144,6 @@ class Game:
 
     def main_menu(self):
         while True:
-            # self.screen.blit(BG, (0, 0))
             self.screen.fill('black')
             size_buttons = (184, 56)
 
@@ -183,15 +163,21 @@ class Game:
                 pos=(self.width // 2, self.height // 2),
                 text_input="Options", font=get_font(75), base_color="#d7fcd4",
                 hovering_color="White")
-            quit_button = Button(
+            help_button = Button(
                 image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
                                              size_buttons),
                 pos=(self.width // 2, self.height // 2 + self.height * 0.1),
+                text_input="Help", font=get_font(75), base_color="#d7fcd4",
+                hovering_color="White")
+            quit_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             size_buttons),
+                pos=(self.width // 2, self.height // 2 + self.height * 0.2),
                 text_input="Quit", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
             self.screen.blit(menu_text, menu_rect)
 
-            for button in [play_button, options_button, quit_button]:
+            for button in [play_button, options_button, help_button, quit_button]:
                 button.changeColor(menu_mouse_pos)
                 button.update(self.screen)
 
@@ -206,6 +192,9 @@ class Game:
                     if options_button.checkForInput(menu_mouse_pos):
                         self.sound.ui_click.play()
                         self.options()
+                    if help_button.checkForInput(menu_mouse_pos):
+                        self.sound.ui_click.play()
+                        self.help()
                     if quit_button.checkForInput(menu_mouse_pos):
                         self.sound.ui_click.play()
                         pygame.quit()
@@ -216,7 +205,7 @@ class Game:
             pygame.display.update()
 
     def options(self):
-        ui_volume, music_volume = self.sound.read_settings()
+        ui_volume, music_volume = float(self.read_settings()["ui_volume"]), float(self.read_settings()["music_volume"])
         while True:
             options_mouse_pos = pygame.mouse.get_pos()
 
@@ -304,11 +293,11 @@ class Game:
 
                     if options_back.checkForInput(options_mouse_pos):
                         self.sound.ui_click.play()
-                        self.sound.write_settings([ui_volume, music_volume])
+                        self.write_settings({"ui_volume": ui_volume, "music_volume": music_volume})
                         self.main_menu()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        self.sound.write_settings([ui_volume, music_volume])
+                        self.write_settings({"ui_volume": ui_volume, "music_volume": music_volume})
                         self.main_menu()
                 if event.type == SONG_ENDED:
                     self.sound.play_next_track()
@@ -463,23 +452,17 @@ class Game:
             options_rect = options_text.get_rect(center=(self.width // 2, 40))
             self.screen.blit(options_text, options_rect)
 
-            options_back = Button(
+            back_button = Button(
                 image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
                                              (184, 56)),
-                pos=(self.width // 2, self.height // 2 + self.height * 0.2),
+                pos=(self.width // 2, self.height // 2 + self.height * 0.3),
                 text_input="Back", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
-
-            options_back.changeColor(options_mouse_pos)
-            options_back.update(self.screen)
 
             reset_result = Button(
                 image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
                                              (200, 56)),
                 pos=(self.width - 100, 28),
                 text_input="Reset result", font=get_font(60), base_color="#d7fcd4", hovering_color="Red")
-
-            reset_result.changeColor(options_mouse_pos)
-            reset_result.update(self.screen)
 
             level_0 = Button(
                 image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
@@ -498,14 +481,15 @@ class Game:
                 pos=(self.width // 2 - 200, self.height // 2 + self.height * 0.1),
                 text_input="rain", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
-            level_0.changeColor(options_mouse_pos)
-            level_0.update(self.screen)
+            level_sky = Button(
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             (184, 56)),
+                pos=(self.width // 2 - 200, self.height // 2 + self.height * 0.2),
+                text_input="sky", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
 
-            level_1.changeColor(options_mouse_pos)
-            level_1.update(self.screen)
-
-            level_rain.changeColor(options_mouse_pos)
-            level_rain.update(self.screen)
+            for button in [back_button, level_sky, level_rain, level_1, level_0, reset_result]:
+                button.changeColor(options_mouse_pos)
+                button.update(self.screen)
 
             score_text_0 = get_font(80).render(f"{result['level_0'][0]}/{result['level_0'][1]}", True, "white")
             score_rect_0 = score_text_0.get_rect(
@@ -520,6 +504,11 @@ class Game:
             score_rect_rain = score_text_rain.get_rect(
                 center=(self.width // 2 - 10, self.height // 2 + self.height * 0.1 - 10))
             self.screen.blit(score_text_rain, score_rect_rain)
+
+            score_text_sky = get_font(80).render(f"{result['sky'][0]}/{result['sky'][1]}", True, "white")
+            score_rect_sky = score_text_sky.get_rect(
+                center=(self.width // 2 - 10, self.height // 2 + self.height * 0.2 - 10))
+            self.screen.blit(score_text_sky, score_rect_sky)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -538,13 +527,87 @@ class Game:
                         self.sound.ui_click.play()
                         self.cur_level = "rain"
                         self.play(self.cur_level)
-                    if options_back.checkForInput(options_mouse_pos):
+                    if level_sky.checkForInput(options_mouse_pos):
+                        self.sound.ui_click.play()
+                        self.cur_level = "sky"
+                        self.play(self.cur_level)
+                    if back_button.checkForInput(options_mouse_pos):
                         self.sound.ui_click.play()
                         self.main_menu()
                     if reset_result.checkForInput(options_mouse_pos):
                         self.sound.ui_click.play()
                         self.reset_save()
                         result = self.read_result()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.main_menu()
+                if event.type == SONG_ENDED:
+                    self.sound.play_next_track()
+
+            pygame.display.update()
+
+    def help(self):
+        arrowright = pygame.transform.scale(pygame.image.load("data/sprites/ui/ARROWRIGHT.png").convert_alpha(),
+                                            (64, 64))
+        arrowleft = pygame.transform.scale(pygame.image.load("data/sprites/ui/ARROWLEFT.png").convert_alpha(),
+                                           (64, 64))
+        arrowup = pygame.transform.scale(pygame.image.load("data/sprites/ui/ARROWUP.png").convert_alpha(),
+                                         (64, 64))
+        coin_sprite = pygame.transform.scale(pygame.image.load("data/sprites/coin/5.png").convert_alpha(), (64, 64))
+        key_sprite = pygame.transform.scale(pygame.image.load("data/sprites/ui/key.png").convert_alpha(), (64, 64))
+        exit_sprite = pygame.transform.scale(pygame.image.load("data/sprites/ui/exit.png").convert_alpha(), (64, 64))
+        while True:
+            self.screen.fill('black')
+            size_buttons = (184, 56)
+
+            menu_mouse_pos = pygame.mouse.get_pos()
+
+            self.screen.blit(arrowleft, (240, 250))
+            self.screen.blit(arrowright, (368, 250))
+            self.screen.blit(arrowup, (304, 186))
+
+            text = get_font(200).render(">", True, "white")
+            rect = text.get_rect(center=(490, 225))
+            self.screen.blit(text, rect)
+            self.screen.blit(coin_sprite, (540, 225))
+
+            text = get_font(200).render(">", True, "white")
+            rect = text.get_rect(center=(662, 225))
+            self.screen.blit(text, rect)
+            self.screen.blit(key_sprite, (712, 225))
+
+            text = get_font(200).render(">", True, "white")
+            rect = text.get_rect(center=(834, 225))
+            self.screen.blit(text, rect)
+            self.screen.blit(exit_sprite, (884, 225))
+
+            back_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             size_buttons),
+                pos=(self.width // 2, self.height // 2 + self.height * 0.3),
+                text_input="Back", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
+
+            github_button = Button(
+                image=pygame.transform.scale(pygame.image.load("data/sprites/ui/button.png").convert_alpha(),
+                                             size_buttons),
+                pos=(self.width // 2, self.height // 2 + self.height * 0.2),
+                text_input="Github", font=get_font(75), base_color="#d7fcd4", hovering_color="White")
+
+            for button in [back_button, github_button]:
+                button.changeColor(menu_mouse_pos)
+                button.update(self.screen)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if github_button.checkForInput(menu_mouse_pos):
+                        self.sound.ui_click.play()
+                        webbrowser.open("https://github.com/addfd/EnigmaExit")
+                    if back_button.checkForInput(menu_mouse_pos):
+                        self.sound.ui_click.play()
+                        self.main_menu()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.main_menu()
@@ -566,3 +629,17 @@ class Game:
 
     def reset_save(self):
         self.write_result({level: [0, value[1]] for level, value in self.read_result().items()})
+
+    def read_settings(self):
+        with open(self.path_to_settings) as settings:
+            result = settings.read().splitlines()
+            re = {line.split("=")[0]: line.split("=")[1] for line in result}
+        return re
+
+    def write_settings(self, new_settings):
+        cur_settings = self.read_settings()
+        for name, sett in new_settings.items():
+            cur_settings[name] = sett
+        with open(self.path_to_settings, "w") as settings:
+            for name, sett in cur_settings.items():
+                settings.write(f"{name}={sett}\n")
