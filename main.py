@@ -144,7 +144,6 @@ class Game:
 
     def main_menu(self):
         while True:
-            # self.screen.blit(BG, (0, 0))
             self.screen.fill('black')
             size_buttons = (184, 56)
 
@@ -608,6 +607,9 @@ class Game:
                         webbrowser.open("https://github.com/addfd/EnigmaExit")
                     if back_button.checkForInput(menu_mouse_pos):
                         self.sound.ui_click.play()
+                        self.main_menu()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
                         self.main_menu()
                 if event.type == SONG_ENDED:
                     self.sound.play_next_track()
